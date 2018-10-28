@@ -6,7 +6,7 @@ const usuarios = new Usuarios();
 
 io.on('connection', (client) => {
 
-    client.on('entrarChar', (data, callback) => {
+    client.on('entrarChat', (data, callback) => {
         if (!data.nombre || !data.sala) {
             return callback({
                 error: true,
@@ -14,25 +14,30 @@ io.on('connection', (client) => {
             });
         }
 
+
         client.join(data.sala);
 
         let personas = usuarios.agregarPersonas(client.id, data.nombre, data.sala);
         client.broadcast.to(data.sala).emit('listaPersona', usuarios.getPersonasPorSala(data.sala));
+        client.broadcast.to(data.sala).emit('crearMensaje', crearMensaje('Administrador', `${ data.nombre } se unió al chat`));
 
         callback(usuarios.getPersonasPorSala(data.sala));
     });
 
     client.on('disconnect', () => {
         let personasBorrada = usuarios.borrarPersona(client.id);
-
-        client.broadcast.to(personasBorrada.sala).emit('crearMensaje', crearMensaje('Administrador', `${ personasBorrada.nombre } abandonó el chat`));
-        client.broadcast.to(personasBorrada.sala).emit('listaPersona', usuarios.getPersonasPorSala(personasBorrada.sala));
+        if (personasBorrada) {
+            client.broadcast.to(personasBorrada.sala).emit('crearMensaje', crearMensaje('Administrador', `${ personasBorrada.nombre } abandonó el chat`));
+            client.broadcast.to(personasBorrada.sala).emit('listaPersona', usuarios.getPersonasPorSala(personasBorrada.sala));
+        }
     });
 
-    client.on('crearMensaje', (data) => {
+    client.on('crearMensaje', (data, callback) => {
         let persona = usuarios.getPersona(client.id);
         let mensaje = crearMensaje(persona.nombre, data.mensaje);
         client.broadcast.to(persona.sala).emit('crearMensaje', mensaje);
+
+        callback(mensaje);
     });
 
     // mensajes privados
